@@ -18,7 +18,7 @@ class GoogleCloudStorage extends BaseAdapter {
   async save(file, targetDir = this.getTargetDir()) {
     // Ensure target directory exists and is properly formatted
     targetDir = targetDir || this.getTargetDir();
-    
+
     // Build complete file path
     const fileName = path.join(targetDir, file.name).replace(/\\/g, '/');
 
@@ -44,7 +44,7 @@ class GoogleCloudStorage extends BaseAdapter {
     try {
       // Parse URL
       const parsedUrl = new URL(url);
-      
+
       let filePath;
       if (parsedUrl.hostname === 'storage.googleapis.com') {
         // Extract file path from URL, remove leading /bucketName/
@@ -76,7 +76,7 @@ class GoogleCloudStorage extends BaseAdapter {
     const date = new Date();
     const year = date.getFullYear();
     const month = (`0${date.getMonth() + 1}`).slice(-2);
-    
+
     return path.join(baseDir, String(year), month);
   }
 
@@ -86,7 +86,73 @@ class GoogleCloudStorage extends BaseAdapter {
   }
 
   serve() {
-    return (req, res, next) => next();
+    return async (req, res, next) => {
+        try {
+            // 1. Get file path (remove leading slashes)
+            const filePath = req.path.replace(/^\/+/, '');
+
+            // 2. Check if file exists in GCP
+            const file = this.bucket.file(filePath);
+            const [exists] = await file.exists();
+            console.log('File exists in GCP:', exists);
+
+            if (!exists) {
+                console.log(`File not found in GCP: ${filePath}`);
+                return next(new Error('File not found'));
+            }
+
+            // 3. Create read stream for the file
+            const readStream = file.createReadStream();
+
+            // 4. Set appropriate Content-Type
+            const ext = path.extname(filePath).toLowerCase();
+            const contentType = {
+                // Image types
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.svg': 'image/svg+xml',
+                '.webp': 'image/webp',
+                // Media types
+                '.mp4': 'video/mp4',
+                '.webm': 'video/webm',
+                '.ogg': 'video/ogg',
+                '.mp3': 'audio/mpeg',
+                '.wav': 'audio/wav',
+                '.m4a': 'audio/mp4',
+                // File types
+                '.pdf': 'application/pdf',
+                '.doc': 'application/msword',
+                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                '.xls': 'application/vnd.ms-excel',
+                '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                '.zip': 'application/zip',
+                '.json': 'application/json',
+                '.txt': 'text/plain'
+            }[ext] || 'application/octet-stream';
+
+            // 5. Error handling
+            readStream.on('error', (err) => {
+                console.error(`Error reading ${filePath}:`, err);
+                if (err.code === 404) {
+                    return next(new Error('File not found'));
+                }
+                next(err);
+            });
+
+            // 6. Set response headers
+            res.set('Content-Type', contentType);
+            res.set('Cache-Control', 'public, max-age=2678400');
+
+            // 7. Pipe file stream to response
+            readStream.pipe(res);
+
+        } catch (err) {
+            console.error('Serve error:', err);
+            next(err);
+        }
+    };
   }
 
   async delete(fileName, targetDir) {

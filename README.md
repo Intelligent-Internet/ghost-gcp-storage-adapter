@@ -138,5 +138,52 @@ NODE_ENV=development ghost run
 
 With this you'be able to see the logs in real time and test and debug this package.
 
+## Migrating Legacy Data
+If you have existing content in your Ghost installation that you want to migrate to Google Cloud Storage, you have two options:
+
+### Manual Migration
+1. Keep your existing directory structure when uploading to GCP:
+   - Images should go to the root of your bucket
+   - Media files (audio/video) should maintain their original paths from `content/media/`
+   - Other files should maintain their original paths from `content/files/`
+
+2. Upload your files to GCP while preserving the directory structure to ensure all existing URLs continue to work.
+
+### Automated Migration Script
+We provide a migration script to help you move your existing files to GCP. To use it:
+
+1. Install required dependencies in your Ghost content directory:
+```bash
+cd /path/to/your/ghost/content
+npm install @google-cloud/storage glob fs-extra
+```
+
+2. Copy the migration script from this repository:
+```bash
+cp ghost-gcp-storage-adapter/script/migrate-local-to-gcp.js ./
+```
+
+3. Update the GCP configuration in the script:
+```javascript
+const config = {
+    keyFilename: 'path/to/your/credentials.json',
+    projectId: 'your-project-id',
+    bucketName: 'your-bucket-name'
+};
+```
+
+4. Run the migration script:
+```bash
+node migrate-local-to-gcp.js
+```
+
+The script will:
+- Preserve your existing directory structure
+- Maintain separate paths for images, media, and files
+- Set appropriate public access and cache controls
+- Log the migration progress and any errors
+
+Note: It's recommended to backup your content before running the migration script.
+
 ## :page_with_curl: License
 [MIT](https://github.com/vcgtz/ghost-gcp-storage-adapter/blob/main/LICENSE)
