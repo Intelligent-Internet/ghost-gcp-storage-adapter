@@ -154,7 +154,7 @@ We provide a migration script to help you move your existing files to GCP. To us
 
 1. Install required dependencies in your Ghost content directory:
 ```bash
-cd /path/to/your/ghost/content
+cd /path/to/your/ghost
 npm install @google-cloud/storage glob fs-extra
 ```
 
